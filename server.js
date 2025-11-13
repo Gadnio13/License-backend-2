@@ -4,12 +4,35 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// PostgreSQL connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+// Build PostgreSQL connection config
+let poolConfig = {
   max: 5, // Minimal pool size for low memory usage
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+};
+
+if (process.env.DATABASE_URL) {
+  // Use DATABASE_URL if provided
+  poolConfig.connectionString = process.env.DATABASE_URL;
+  // Koyeb Postgres requires SSL
+  poolConfig.ssl = process.env.DATABASE_SSL !== 'false' ? { rejectUnauthorized: false } : false;
+} else {
+  // Use separate environment variables
+  poolConfig.host = process.env.DATABASE_HOST;
+  poolConfig.port = parseInt(process.env.DATABASE_PORT || '5432', 10);
+  poolConfig.user = process.env.DATABASE_USER;
+  poolConfig.password = process.env.DATABASE_PASSWORD;
+  poolConfig.database = process.env.DATABASE_NAME;
+  // Koyeb Postgres requires SSL
+  poolConfig.ssl = process.env.DATABASE_SSL !== 'false' ? { rejectUnauthorized: false } : false;
+}
+
+// PostgreSQL connection pool
+const pool = new Pool(poolConfig);
+
+// Root health check endpoint for Koyeb
+app.get('/', (req, res) => {
+  res.send('OK');
 });
 
 // Health check endpoint
